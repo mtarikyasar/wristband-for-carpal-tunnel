@@ -10,6 +10,7 @@ char str[512];            //string buffer to transform data before sending it to
 int regAddress = 0x32;      //first axis-acceleration-data register on the ADXL345
 int xa = 0, ya = 0, za = 0;  
 int xb = 0, yb = 0, zb = 0;
+int differences[3] = {0, 0, 0};
 
 void writeTo(int device, byte address, byte val) {
    Wire.beginTransmission(device); //start transmission to device 
@@ -58,7 +59,14 @@ void loop()
   xb = (((int)buff[1]) << 8) | buff[0];   
   yb = (((int)buff[3])<< 8) | buff[2];
   zb = (((int)buff[5]) << 8) | buff[4];
-  
+
+  differences[0] = xb-xa;
+  differences[1] = yb-ya;
+  differences[2] = zb-za;
+
+  if (differences[0] <= 5 && differences[1] <= 5 && differences[2] <= 5){
+    Serial.println("NOICE");
+  }
   //we send the x y z values as a string to the serial port
   sprintf(str, "X1:%d Y1:%d Z1:%d X2:%d Y2:%d Z3:%d", xa, ya, za, xb, yb, zb);  
   Serial.print(str);
