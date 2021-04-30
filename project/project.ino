@@ -11,6 +11,8 @@ int regAddress = 0x32;      //first axis-acceleration-data register on the ADXL3
 int xa = 0, ya = 0, za = 0;  
 int xb = 0, yb = 0, zb = 0;
 int differences[3] = {0, 0, 0};
+int green_led = 9;
+int red_led = 10;
 
 void writeTo(int device, byte address, byte val) {
    Wire.beginTransmission(device); //start transmission to device 
@@ -44,6 +46,10 @@ void setup()
   //Turning on the both ADXL345s
   writeTo(DEVICE_A, 0x2D, 24);   
   writeTo(DEVICE_B, 0x2D, 24);
+
+  // Declare led pins
+  pinMode(green_led, OUTPUT);
+  pinMode(red_led, OUTPUT);
 }
   
 void loop()
@@ -66,6 +72,11 @@ void loop()
 
   if (differences[0] <= 5 && differences[1] <= 5 && differences[2] <= 5){
     Serial.println("NOICE");
+    digitalWrite(green_led, HIGH);
+    digitalWrite(red_led, LOW);
+  } else {
+    digitalWrite(green_led, LOW);
+    digitalWrite(red_led, HIGH);  
   }
   //we send the x y z values as a string to the serial port
   sprintf(str, "X1:%d Y1:%d Z1:%d X2:%d Y2:%d Z3:%d", xa, ya, za, xb, yb, zb);  
@@ -73,5 +84,5 @@ void loop()
   Serial.write(10);
   
   //It appears that delay is needed in order not to clog the port
-  delay(2500);
+  delay(10);
 }
