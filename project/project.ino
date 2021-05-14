@@ -1,88 +1,78 @@
 #include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_ADXL345_U.h>
 
-#define DEVICE_A (0x1D)    //first ADXL345 device address
-#define DEVICE_B (0x53)    //second ADXL345 device address
-#define TO_READ (6)        //num of bytes we are going to read each time (two bytes for each axis)
+Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified();
 
-byte buff[TO_READ] ;      //6 bytes buffer for saving data read from the device
-char str[512];            //string buffer to transform data before sending it to the serial port
+double saved_x = 0, saved_y = 0, saved_z = 0;
+double current_x = 0, current_y = 0, current_z = 0;
+int flag = 0;
 
-int regAddress = 0x32;      //first axis-acceleration-data register on the ADXL345
-int xa = 0, ya = 0, za = 0;  
-int xb = 0, yb = 0, zb = 0;
-int differences[3] = {0, 0, 0};
-int green_led = 9;
-int red_led = 10;
+int wrist_position_correct = 2;
+int wrist_position_wrong = 3;
+int saved_led = 4;
 
-void writeTo(int device, byte address, byte val) {
-   Wire.beginTransmission(device); //start transmission to device 
-   Wire.write(address);        // send register address
-   Wire.write(val);        // send value to write
-   Wire.endTransmission(); //end transmission
-}
 
-void readFrom(int device, byte address, int num, byte buff[]) {
-  Wire.beginTransmission(device); //start transmission to device 
-  Wire.write(address);        //sends address to read from
-  Wire.endTransmission(); //end transmission
-  
-  Wire.beginTransmission(device); //start transmission to device
-  Wire.requestFrom(device, num);    // request 6 bytes from device
-  
-  int i = 0;
-  while(Wire.available())    //device may send less than requested (abnormal)
-  { 
-    buff[i] = Wire.read(); // receive a byte
-    i++;
-  }
-  Wire.endTransmission(); //end transmission
-}
-
-void setup()
+void setup(void) 
 {
-  Wire.begin();        // join i2c bus (address optional for master)
-  Serial.begin(9600);  // start serial for output
+  pinMode(wrist_position_correct, OUTPUT);
+  pinMode(wrist_position_wrong, OUTPUT);
+  pinMode(saved_led, OUTPUT);
   
-  //Turning on the both ADXL345s
-  writeTo(DEVICE_A, 0x2D, 24);   
-  writeTo(DEVICE_B, 0x2D, 24);
+   Serial.begin(9600);  
 
-  // Declare led pins
-  pinMode(green_led, OUTPUT);
-  pinMode(red_led, OUTPUT);
+   if(!accel.begin())
+   {
+      Serial.println("No ADXL345 sensor detected.");
+      while(1);
+   }
+
+   digitalWrite(saved_led, HIGH);
 }
-  
-void loop()
-{  
-  readFrom(DEVICE_A, regAddress, TO_READ, buff); //read the acceleration data from the ADXL345  
-   //each axis reading comes in 10 bit resolution, ie 2 bytes.  Least Significat Byte first!!
-   //thus we are converting both bytes in to one int
-  xa = (((int)buff[1]) << 8) | buff[0];   
-  ya = (((int)buff[3])<< 8) | buff[2];
-  za = (((int)buff[5]) << 8) | buff[4];
-  
-  readFrom(DEVICE_B, regAddress, TO_READ, buff); //read the acceleration data from the second ADXL345
-  xb = (((int)buff[1]) << 8) | buff[0];   
-  yb = (((int)buff[3])<< 8) | buff[2];
-  zb = (((int)buff[5]) << 8) | buff[4];
 
-  differences[0] = xb-xa;
-  differences[1] = yb-ya;
-  differences[2] = zb-za;
+void loop(void) 
+{
+   sensors_event_t event; 
+   accel.getEvent(&event);
+   current_x = event.acceleration.x;
+   current_y = event.acceleration.y;
+   current_z = event.acceleration.z;
+   
+   Serial.print("X: "); Serial.print(current_x); Serial.print("  ");
+   Serial.print("Y: "); Serial.print(current_y); Serial.print("  ");
+   Serial.print("Z: "); Serial.print(current_z); Serial.print("  ");
+   Serial.println("m/s^2 ");
+   //delay(1000);
 
-  if (differences[0] <= 5 && differences[1] <= 5 && differences[2] <= 5){
-    Serial.println("NOICE");
-    digitalWrite(green_led, HIGH);
-    digitalWrite(red_led, LOW);
-  } else {
-    digitalWrite(green_led, LOW);
-    digitalWrite(red_led, HIGH);  
-  }
-  //we send the x y z values as a string to the serial port
-  sprintf(str, "X1:%d Y1:%d Z1:%d X2:%d Y2:%d Z3:%d", xa, ya, za, xb, yb, zb);  
-  Serial.print(str);
-  Serial.write(10);
-  
-  //It appears that delay is needed in order not to clog the port
-  delay(10);
+   if (flag) {
+    digitalWrite(saved_led, LOW);
+    int difference_x = abs(current_x) - abs(saved_x);
+    int difference_y = abs(current_y) - abs(saved_y);
+    int difference_z = abs(current_z) - abs(saved_z);
+
+    if (difference_y < 0.5){
+      digitalWrite(wrist_position_correct, HIGH);
+      digitalWrite(wrist_position_wrong, LOW);
+    }
+    else {
+      digitalWrite(wrist_position_correct, LOW);
+      digitalWrite(wrist_position_wrong, HIGH);
+    }
+   }
+
+   if(Serial.available()){
+    flag = 1;
+    saved_x = current_x;
+    saved_y = current_y;
+    saved_z = current_z;
+    
+    Serial.print("SAVED!: ");
+    Serial.print(saved_x);
+    Serial.print(saved_y);
+    Serial.print(saved_z);
+    Serial.println("");
+
+    //  Clear input buffer
+    Serial.read();
+   }
 }
