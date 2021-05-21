@@ -17,13 +17,16 @@ int flag = 0;
 int wrist_position_correct = 2;
 int wrist_position_wrong = 3;
 int saved_led = 4;
-int pot_pin = 6;
+int button_pin = 5;
+
+int button_state = 0;
 
 void setup(void) 
 {
   pinMode(wrist_position_correct, OUTPUT);
   pinMode(wrist_position_wrong, OUTPUT);
   pinMode(saved_led, OUTPUT);
+  pinMode(button_pin, INPUT);
   
    Serial.begin(9600);  
 
@@ -53,8 +56,6 @@ void loop(void)
    current_x = event.acceleration.x;
    current_y = event.acceleration.y;
    current_z = event.acceleration.z;
-
-   int pot_val = analogRead(pot_pin);
    
    display.clearDisplay();
    display.setCursor(0, 0);
@@ -62,14 +63,15 @@ void loop(void)
    display.print("x: "); display.print(saved_x); display.print(";");
    display.print("y: "); display.print(saved_y); display.print(";");
    display.print("z: "); display.print(saved_z); display.println(";");
-   display.println(pot_val);
+   display.println(button_state);
    display.display();
    
    Serial.print("X: "); Serial.print(current_x); Serial.print("  ");
    Serial.print("Y: "); Serial.print(current_y); Serial.print("  ");
    Serial.print("Z: "); Serial.print(current_z); Serial.print("  ");
    Serial.println("m/s^2 ");
-   Serial.println(pot_val);
+
+   button_state = digitalRead(button_pin);
    //delay(1000);
 
    if (flag) {
@@ -89,7 +91,7 @@ void loop(void)
     }
    }
 
-   if(pot_val < 500){
+   if(button_state){
     flag = 1;
     saved_x = current_x;
     saved_y = current_y;
