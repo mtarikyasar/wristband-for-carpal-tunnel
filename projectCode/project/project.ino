@@ -18,8 +18,11 @@ int wrist_position_correct = 2;
 int wrist_position_wrong = 3;
 int saved_led = 4;
 int button_pin = 5;
+int change_interface_button_pin = 6;
 
 int button_state = 0;
+int interface_state = 0; // 0 for wrist, 1 for pulse sensor
+int interface = 0;
 
 void setup(void) 
 {
@@ -27,6 +30,7 @@ void setup(void)
   pinMode(wrist_position_wrong, OUTPUT);
   pinMode(saved_led, OUTPUT);
   pinMode(button_pin, INPUT);
+  pinMode(change_interface_button_pin, INPUT);
   
    Serial.begin(9600);  
 
@@ -51,6 +55,29 @@ void setup(void)
 
 void loop(void) 
 {
+  interface_state = digitalRead(change_interface_button_pin);
+
+  if (interface_state) {
+    Serial.println("Changing mods...");
+    // Then interface will change
+    if (interface == 0) {
+      interface = 1;
+    } else {
+      interface = 0;
+    }
+    
+    delay(500);
+
+    // Resets the leds
+    digitalWrite(wrist_position_correct, LOW);
+    digitalWrite(wrist_position_wrong, LOW);
+    digitalWrite(saved_led, HIGH);
+
+    // Reset flag
+    flag = 0;
+  }
+  
+  if (interface == 0){
    sensors_event_t event; 
    accel.getEvent(&event);
    current_x = event.acceleration.x;
@@ -106,4 +133,12 @@ void loop(void)
     //  Clear input buffer
     Serial.read();
    }
+  } else {
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.println("Heart Rate: ");
+      display.println("86");
+      display.display();
+  }
+   
 }
