@@ -57,7 +57,7 @@ void loop(void)
    int pot_val = analogRead(pot_pin);
    
    display.clearDisplay();
-   display.setCursor(0, 10);
+   display.setCursor(0, 0);
    display.println("Saved wrist position: ");
    display.print("x: "); display.print(saved_x); display.print(";");
    display.print("y: "); display.print(saved_y); display.print(";");
