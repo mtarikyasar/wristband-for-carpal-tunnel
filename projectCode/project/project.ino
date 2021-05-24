@@ -3,6 +3,7 @@
 #include <Adafruit_ADXL345_U.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <PulseSensorPlayground.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
@@ -24,13 +25,27 @@ int button_state = 0;
 int interface_state = 0; // 0 for wrist, 1 for pulse sensor
 int interface = 0;
 
+int const pulse_sensor_pin = 0;
+PulseSensorPlayground pulseSensor;
+
+int x = 0;
+int lastx = 0;
+int lasty = 0;
+int LastTime=0;
+bool BPMTiming=false;
+bool BeatComplete=false;
+int BPM=0;
+
 void setup(void) 
 {
   pinMode(wrist_position_correct, OUTPUT);
   pinMode(wrist_position_wrong, OUTPUT);
   pinMode(saved_led, OUTPUT);
-  pinMode(button_pin, INPUT);
-  pinMode(change_interface_button_pin, INPUT);
+  pinMode(button_pin, INPUT_PULLUP);
+  pinMode(change_interface_button_pin, INPUT_PULLUP);
+
+  pulseSensor.analogInput(pulse_sensor_pin);
+  pulseSensor.setThreshold(550);
   
    Serial.begin(9600);  
 
@@ -56,14 +71,18 @@ void setup(void)
 void loop(void) 
 {
   interface_state = digitalRead(change_interface_button_pin);
-
-  if (interface_state) {
+  int myBPM = pulseSensor.getBeatsPerMinute();
+  Serial.print("Button Pin: ");
+  Serial.println(digitalRead(button_pin));
+  Serial.print("Interface Pin: ");
+  Serial.println(digitalRead(change_interface_button_pin));
+  if (!interface_state) {
     Serial.println("Changing mods...");
     // Then interface will change
-    if (interface == 0) {
-      interface = 1;
-    } else {
+    if (interface == 1) {
       interface = 0;
+    } else {
+      interface = 1;
     }
     
     delay(500);
@@ -77,7 +96,7 @@ void loop(void)
     flag = 0;
   }
   
-  if (interface == 0){
+  if (interface == 1){
    sensors_event_t event; 
    accel.getEvent(&event);
    current_x = event.acceleration.x;
@@ -111,14 +130,27 @@ void loop(void)
     if (difference_y < 0.5){
       digitalWrite(wrist_position_correct, HIGH);
       digitalWrite(wrist_position_wrong, LOW);
+      display.invertDisplay(false);
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.print("Correct");
     }
     else {
       digitalWrite(wrist_position_correct, LOW);
       digitalWrite(wrist_position_wrong, HIGH);
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      delay(100);
+//      for (int i = 0; i < 128; i++){
+//        for (int j = 0; j < 64; j++){
+//          display.drawPixel(i, j, WHITE);
+//        }
+//      }
+      display.invertDisplay(true);
     }
    }
 
-   if(button_state){
+   if(!button_state){
     flag = 1;
     saved_x = current_x;
     saved_y = current_y;
@@ -129,16 +161,16 @@ void loop(void)
     Serial.print(saved_y);
     Serial.print(saved_z);
     Serial.println("");
-    
-    //  Clear input buffer
-    Serial.read();
    }
   } else {
       display.clearDisplay();
       display.setCursor(0, 0);
-      display.println("Heart Rate: ");
-      display.println("86");
+      display.print("Heart Rate: ");
+      display.println(pulseSensor.getBeatsPerMinute());
+      display.print("Heart Rate: ");
+      display.println(analogRead(pulse_sensor_pin));
       display.display();
-  }
+      delay(20);
+    }
    
 }
