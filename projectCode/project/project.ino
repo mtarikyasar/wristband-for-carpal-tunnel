@@ -17,7 +17,6 @@ int flag = 0;
 
 int wrist_position_correct = 2;
 int wrist_position_wrong = 3;
-int saved_led = 4;
 int button_pin = 5;
 int change_interface_button_pin = 6;
 
@@ -28,9 +27,9 @@ int interface = 0;
 int const pulse_sensor_pin = 0;
 PulseSensorPlayground pulseSensor;
 
-int x = 0;
-int lastx = 0;
-int lasty = 0;
+int x=0;
+int lastx=0;
+int lasty=0;
 int LastTime=0;
 bool BPMTiming=false;
 bool BeatComplete=false;
@@ -40,7 +39,6 @@ void setup(void)
 {
   pinMode(wrist_position_correct, OUTPUT);
   pinMode(wrist_position_wrong, OUTPUT);
-  pinMode(saved_led, OUTPUT);
   pinMode(button_pin, INPUT_PULLUP);
   pinMode(change_interface_button_pin, INPUT_PULLUP);
 
@@ -60,24 +58,24 @@ void setup(void)
     for(;;);
   }
 
-   digitalWrite(saved_led, HIGH);
-   display.clearDisplay();
-
+  display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE);
-  display.setCursor(0, 10);
+  display.setCursor(60, 25);
+  display.println("Hi!");
+  display.display();
+  delay(500);
+  display.clearDisplay();
 }
 
 void loop(void) 
 {
   interface_state = digitalRead(change_interface_button_pin);
   int myBPM = pulseSensor.getBeatsPerMinute();
-  Serial.print("Button Pin: ");
-  Serial.println(digitalRead(button_pin));
-  Serial.print("Interface Pin: ");
-  Serial.println(digitalRead(change_interface_button_pin));
+  
   if (!interface_state) {
     Serial.println("Changing mods...");
+    display.clearDisplay();
     // Then interface will change
     if (interface == 1) {
       interface = 0;
@@ -90,42 +88,33 @@ void loop(void)
     // Resets the leds
     digitalWrite(wrist_position_correct, LOW);
     digitalWrite(wrist_position_wrong, LOW);
-    digitalWrite(saved_led, HIGH);
 
     // Reset flag
     flag = 0;
   }
   
-  if (interface == 1){
-   sensors_event_t event; 
-   accel.getEvent(&event);
-   current_x = event.acceleration.x;
-   current_y = event.acceleration.y;
-   current_z = event.acceleration.z;
-   
-   display.clearDisplay();
-   display.setCursor(0, 0);
-   display.println("Saved wrist position: ");
-   display.print("x: "); display.print(saved_x); display.print(";");
-   display.print("y: "); display.print(saved_y); display.print(";");
-   display.print("z: "); display.print(saved_z); display.println(";");
-   display.println(button_state);
-   display.display();
-   
-   Serial.print("X: "); Serial.print(current_x); Serial.print("  ");
-   Serial.print("Y: "); Serial.print(current_y); Serial.print("  ");
-   Serial.print("Z: "); Serial.print(current_z); Serial.print("  ");
-   Serial.println("m/s^2 ");
-
+  if (interface == 0){
    button_state = digitalRead(button_pin);
-   //delay(1000);
 
    if (flag) {
-    digitalWrite(saved_led, LOW);
-    
-    int difference_x = abs(current_x) - abs(saved_x);
-    int difference_y = abs(current_y) - abs(saved_y);
-    int difference_z = abs(current_z) - abs(saved_z);
+    sensors_event_t event; 
+    accel.getEvent(&event);
+
+    display.clearDisplay();
+    display.setCursor(0, 0);
+    display.println("Save      Change Mod");
+    display.setCursor(50, 25);
+    display.println("Saved!");
+    display.display();
+   
+    Serial.print("X: "); Serial.print(event.acceleration.x); Serial.print("  ");
+    Serial.print("Y: "); Serial.print(event.acceleration.y); Serial.print("  ");
+    Serial.print("Z: "); Serial.print(event.acceleration.z); Serial.print("  ");
+    Serial.println("m/s^2 ");
+   
+    int difference_x = abs(event.acceleration.x) - abs(saved_x);
+    int difference_y = abs(event.acceleration.y) - abs(saved_y);
+    int difference_z = abs(event.acceleration.z) - abs(saved_z);
 
     if (difference_y < 0.5){
       digitalWrite(wrist_position_correct, HIGH);
@@ -140,21 +129,26 @@ void loop(void)
       digitalWrite(wrist_position_wrong, HIGH);
       display.clearDisplay();
       display.setCursor(0, 0);
-      delay(100);
-//      for (int i = 0; i < 128; i++){
-//        for (int j = 0; j < 64; j++){
-//          display.drawPixel(i, j, WHITE);
-//        }
-//      }
       display.invertDisplay(true);
     }
+   } else {
+      display.clearDisplay();
+      display.setCursor(0, 0);
+      display.println("Save      Change Mod");
+      display.setCursor(0, 25);
+      display.println("Please press 'Save' button to calibrate");
+      display.display();
    }
 
    if(!button_state){
+    sensors_event_t event; 
+    accel.getEvent(&event);
+
     flag = 1;
-    saved_x = current_x;
-    saved_y = current_y;
-    saved_z = current_z;
+
+    saved_x = event.acceleration.x;
+    saved_y = event.acceleration.y;
+    saved_z = event.acceleration.z;
     
     Serial.print("SAVED!: ");
     Serial.print(saved_x);
@@ -163,14 +157,42 @@ void loop(void)
     Serial.println("");
    }
   } else {
-      display.clearDisplay();
-      display.setCursor(0, 0);
-      display.print("Heart Rate: ");
-      display.println(pulseSensor.getBeatsPerMinute());
-      display.print("Heart Rate: ");
-      display.println(analogRead(pulse_sensor_pin));
-      display.display();
-      delay(20);
-    }
-   
+      if(x>127){
+        display.clearDisplay();
+        x=0;
+        lastx=x;
+      }
+ 
+      int value=analogRead(pulse_sensor_pin);
+      display.setTextColor(WHITE);
+      int y=60-(value/16);
+      display.writeLine(lastx,lasty,x,y,WHITE);
+      lasty=y;
+      lastx=x;
+     
+      if(value>550) {
+        if(BeatComplete) {
+          BPM=millis()-LastTime;
+          BPM=int(60/(float(BPM)/1000));
+          BPMTiming=false;
+          BeatComplete=false;
+        }
+        if(BPMTiming==false) {
+          LastTime=millis();
+          BPMTiming=true;
+        }
+      }
+      if((value<500)&(BPMTiming))
+        BeatComplete=true;
+        
+        // display bpm
+        display.setCursor(0, 0);
+        display.println("Save      Change Mod");
+        display.writeFillRect(0,50,128,16,BLACK);
+        display.setCursor(0,50);
+        display.print(BPM);
+        display.print(" BPM");
+        display.display();
+        x++;
+  } 
 }
