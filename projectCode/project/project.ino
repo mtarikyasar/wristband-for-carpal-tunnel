@@ -12,8 +12,7 @@ Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified();
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 double saved_x = 0, saved_y = 0, saved_z = 0;
-double current_x = 0, current_y = 0, current_z = 0;
-int flag = 0;
+bool flag = false;
 
 int wrist_position_correct = 2;
 int wrist_position_wrong = 3;
@@ -34,6 +33,8 @@ int LastTime=0;
 bool BPMTiming=false;
 bool BeatComplete=false;
 int BPM=0;
+
+bool flag2 = true;
 
 void setup(void) 
 {
@@ -61,18 +62,20 @@ void setup(void)
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE);
-  display.setCursor(60, 25);
+  display.setCursor(45, 15);
+  display.setTextSize(3);
   display.println("Hi!");
   display.display();
   delay(500);
   display.clearDisplay();
+  display.setTextSize(1);
 }
 
 void loop(void) 
 {
   interface_state = digitalRead(change_interface_button_pin);
   int myBPM = pulseSensor.getBeatsPerMinute();
-  
+  String message;
   if (!interface_state) {
     Serial.println("Changing mods...");
     display.clearDisplay();
@@ -90,7 +93,7 @@ void loop(void)
     digitalWrite(wrist_position_wrong, LOW);
 
     // Reset flag
-    flag = 0;
+    flag = false;
   }
   
   if (interface == 0){
@@ -100,36 +103,47 @@ void loop(void)
     sensors_event_t event; 
     accel.getEvent(&event);
 
+
+    if (flag2) {
     display.clearDisplay();
     display.setCursor(0, 0);
+    display.setTextSize(1);
     display.println("Save      Change Mod");
     display.setCursor(50, 25);
     display.println("Saved!");
     display.display();
-   
+    flag2 = false;  
+    }
+    
     Serial.print("X: "); Serial.print(event.acceleration.x); Serial.print("  ");
     Serial.print("Y: "); Serial.print(event.acceleration.y); Serial.print("  ");
-    Serial.print("Z: "); Serial.print(event.acceleration.z); Serial.print("  ");
-    Serial.println("m/s^2 ");
+    Serial.print("Z: "); Serial.print(event.acceleration.z); Serial.println("  ");
+//    Serial.println("m/s^2 ");
    
-    int difference_x = abs(event.acceleration.x) - abs(saved_x);
-    int difference_y = abs(event.acceleration.y) - abs(saved_y);
-    int difference_z = abs(event.acceleration.z) - abs(saved_z);
-
-    if (difference_y < 0.5){
+    double difference_x = abs(event.acceleration.x) - abs(saved_x);
+    double difference_y = abs(event.acceleration.y) - abs(saved_y);
+    
+    if ((difference_y < 0.5 && difference_y >= -0.5)){
       digitalWrite(wrist_position_correct, HIGH);
       digitalWrite(wrist_position_wrong, LOW);
-      display.invertDisplay(false);
-      display.clearDisplay();
-      display.setCursor(0, 0);
-      display.print("Correct");
-    }
+      flag2 = true;
+    } 
     else {
       digitalWrite(wrist_position_correct, LOW);
       digitalWrite(wrist_position_wrong, HIGH);
+      
       display.clearDisplay();
-      display.setCursor(0, 0);
-      display.invertDisplay(true);
+      display.setTextSize(3);
+      
+          if (saved_y - event.acceleration.y > 0.5) {
+          display.setCursor(40, 15);
+          display.println("UP");
+        } else if (saved_y - event.acceleration.y < -0.5) {
+          display.setCursor(20, 15);
+          display.println("DOWN");
+        }
+        display.display();
+
     }
    } else {
       display.clearDisplay();
@@ -144,7 +158,7 @@ void loop(void)
     sensors_event_t event; 
     accel.getEvent(&event);
 
-    flag = 1;
+    flag = true;
 
     saved_x = event.acceleration.x;
     saved_y = event.acceleration.y;
